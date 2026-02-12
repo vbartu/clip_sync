@@ -33,7 +33,9 @@ impl Executor {
                     let waker = WakerContext::gen_waker(&task, &self.queue);
                     let mut context = Context::from_waker(&waker);
                     match task.poll(&mut context) {
-                        Poll::Pending => self.queue.borrow_mut().push_front(task),
+                        Poll::Pending => {
+                            self.queue.borrow_mut().push_front(task)
+                        }
                         Poll::Ready(_) => println!("Task completed"),
                     };
                 }

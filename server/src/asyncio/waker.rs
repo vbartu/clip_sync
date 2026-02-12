@@ -12,11 +12,15 @@ pub struct WakerContext {
 impl WakerContext {
     pub fn into_waker(self) -> Waker {
         let context = Box::new(self);
-        let raw_walker = RawWaker::new(Box::into_raw(context) as *const (), &VTABLE);
+        let raw_walker =
+            RawWaker::new(Box::into_raw(context) as *const (), &VTABLE);
         unsafe { Waker::from_raw(raw_walker) }
     }
 
-    pub fn gen_waker(task: &Rc<Task>, queue: &RefCell<VecDeque<Rc<Task>>>) -> Waker {
+    pub fn gen_waker(
+        task: &Rc<Task>,
+        queue: &RefCell<VecDeque<Rc<Task>>>,
+    ) -> Waker {
         WakerContext {
             task: task.clone(),
             queue_ptr: queue as *const RefCell<VecDeque<Rc<Task>>>,
@@ -55,4 +59,5 @@ unsafe fn drop(data: *const ()) {
     // Free the memory if the waker is dropped without being called
 }
 
-static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake_by_ref, drop);
+static VTABLE: RawWakerVTable =
+    RawWakerVTable::new(clone, wake, wake_by_ref, drop);
