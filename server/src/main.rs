@@ -1,4 +1,4 @@
-mod async_runtime;
+mod asyncio;
 
 async fn hello_async(i: i32) {
     if i < 10 {
@@ -10,7 +10,7 @@ async fn hello_async(i: i32) {
 fn main() {
     println!("Hello, world!");
 
-    let ex = &mut async_runtime::executor::Executor::new();
+    let ex = &mut asyncio::executor::Executor::new();
     ex.create_task(hello_async(0));
     ex.run();
 }
