@@ -1,19 +1,19 @@
-use std::collections::VecDeque;
 use std::future::Future;
+use std::rc::Rc;
 use std::task::{Context, Poll};
-use std::{cell::RefCell, rc::Rc};
 
+use super::runtime_context::RuntimeContext;
 use super::task::Task;
 use super::waker::WakerContext;
 
 pub struct Executor {
-    queue: RefCell<VecDeque<Rc<Task>>>,
+    rctx: RuntimeContext,
 }
 
 impl Executor {
     pub fn new() -> Self {
         Executor {
-            queue: RefCell::new(VecDeque::new()),
+            rctx: RuntimeContext::new(),
         }
     }
 
@@ -22,23 +22,30 @@ impl Executor {
         F: Future<Output = ()> + 'static,
     {
         let task = Task::new(Box::pin(future));
-        self.queue.borrow_mut().push_front(Rc::new(task));
+        self.rctx.queue.borrow_mut().push_front(Rc::new(task));
+    }
+
+    fn execute_pending_tasks(&mut self) {
+        loop {
+            let task_opt = self.rctx.queue.borrow_mut().pop_back();
+            if let Some(task) = task_opt {
+                let waker = WakerContext::gen_waker(&task, &self.rctx);
+                let mut cx = Context::from_waker(&waker);
+                match task.poll(&mut cx) {
+                    Poll::Pending => {}
+                    Poll::Ready(_) => {}
+                }
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn run(&mut self) {
         loop {
-            match self.queue.borrow_mut().pop_back() {
-                None => return, // No more tasks
-                Some(task) => {
-                    let waker = WakerContext::gen_waker(&task, &self.queue);
-                    let mut context = Context::from_waker(&waker);
-                    match task.poll(&mut context) {
-                        Poll::Pending => {
-                            self.queue.borrow_mut().push_front(task)
-                        }
-                        Poll::Ready(_) => println!("Task completed"),
-                    };
-                }
+            self.execute_pending_tasks();
+            if self.rctx.queue.borrow().is_empty() {
+                break;
             }
         }
     }
