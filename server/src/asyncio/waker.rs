@@ -19,6 +19,14 @@ impl WakerContext {
             RawWaker::new(Box::into_raw(waker_context) as *const (), &VTABLE);
         unsafe { Waker::from_raw(raw_walker) }
     }
+
+    pub fn extract_rctx(waker: &Waker) -> &RuntimeContext {
+        unsafe {
+            let data = *(waker as *const Waker as *const *const ());
+            let context = &*(data as *const WakerContext);
+            &*context.rctx
+        }
+    }
 }
 
 // --- RawWaker vtable functions ---

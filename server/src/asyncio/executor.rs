@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::rc::Rc;
 use std::task::{Context, Poll};
+use std::time::Instant;
 
 use super::runtime_context::RuntimeContext;
 use super::task::Task;
@@ -25,9 +26,29 @@ impl Executor {
         self.rctx.queue.borrow_mut().push_front(Rc::new(task));
     }
 
+    fn check_timer_tasks(&mut self) {
+        loop {
+            let next_time = {
+                match self.rctx.timer.borrow().first_key_value() {
+                    None => return, // No entries left
+                    Some((next_time, _)) => *next_time,
+                }
+            };
+            if next_time > Instant::now() {
+                break; // to soon for next task
+            }
+            let (_, waker) =
+                { self.rctx.timer.borrow_mut().pop_first().unwrap() };
+            waker.wake();
+        }
+    }
+
     fn execute_pending_tasks(&mut self) {
         loop {
-            let task_opt = self.rctx.queue.borrow_mut().pop_back();
+            let task_opt = {
+                let mut queue = self.rctx.queue.borrow_mut();
+                queue.pop_back()
+            };
             if let Some(task) = task_opt {
                 let waker = WakerContext::gen_waker(&task, &self.rctx);
                 let mut cx = Context::from_waker(&waker);
@@ -43,8 +64,14 @@ impl Executor {
 
     pub fn run(&mut self) {
         loop {
+            self.check_timer_tasks();
             self.execute_pending_tasks();
-            if self.rctx.queue.borrow().is_empty() {
+            if let Some((next_time, _)) =
+                self.rctx.timer.borrow().first_key_value()
+            {
+                std::thread::sleep(*next_time - Instant::now());
+            } else {
+                // No scheduled timer tasks, exit
                 break;
             }
         }
