@@ -22,8 +22,7 @@ impl WakerContext {
 
     pub fn extract_rctx(waker: &Waker) -> &RuntimeContext {
         unsafe {
-            let data = *(waker as *const Waker as *const *const ());
-            let context = &*(data as *const WakerContext);
+            let context = &*(waker.data() as *const WakerContext);
             &*context.rctx
         }
     }

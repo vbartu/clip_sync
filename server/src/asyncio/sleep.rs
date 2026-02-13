@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use super::waker::WakerContext;
 
-pub struct Sleep {
+struct Sleep {
     instant: Instant,
 }
 
@@ -33,6 +33,6 @@ impl Future for Sleep {
     }
 }
 
-pub fn sleep(delay: Duration) -> Sleep {
-    Sleep::delay(delay)
+pub async fn sleep(delay: Duration) {
+    Sleep::delay(delay).await
 }
